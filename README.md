@@ -1,4 +1,4 @@
-# 98tang Daysign Script
+# 青龙面板98堂签到
 
 ## How to use
 
