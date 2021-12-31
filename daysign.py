@@ -6,9 +6,10 @@ import uncurl
 import requests
 from bs4 import BeautifulSoup
 
-SEHUATANG_HOST = 'www.sehuatang.net'
+SEHUATANG_HOST = 'www.sdgtretgf.online'
 DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36'
-
+# 三个引号里面粘贴复制的curl
+curls = """"""
 
 def daysign(cookies: dict) -> bool:
 
@@ -62,7 +63,7 @@ def daysign(cookies: dict) -> bool:
 
 
 def retrieve_cookies_from_curl(env: str) -> dict:
-    cURL = os.getenv(env, '').replace('\\', '')
+    cURL = curls.replace('\\', '')
     return uncurl.parse_context(curl_command=cURL).cookies
 
 
@@ -103,8 +104,8 @@ def main():
     print(message_text)
 
     # telegram notify
-    chat_id = os.getenv('CHAT_ID')
-    bot_token = os.getenv('BOT_TOKEN')
+    chat_id = os.getenv('')
+    bot_token = os.getenv('')
     if chat_id and bot_token:
         telegram_send_message(message_text, chat_id, bot_token, silent=(
             True if '签到成功' in message_text else False))
