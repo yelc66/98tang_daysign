@@ -9,7 +9,7 @@
 
 ## How to retrieve cURL command
 
-1.拉取脚本命令 ql raw https://raw.githubusercontent.com/yelc66/98tang_daysign/main/daysign.py 
+1.拉取脚本命令 `ql raw https://raw.githubusercontent.com/yelc66/98tang_daysign/main/daysign.py` 
 2. 由于py文件读取不到青龙环境变量,我是直接在curls里面拷贝复制进去的
 3. 拉取后定时任务就可以执行了 
 
