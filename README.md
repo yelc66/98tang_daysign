@@ -11,6 +11,8 @@
 1. 拉取脚本命令 `ql raw https://raw.githubusercontent.com/yelc66/98tang_daysign/main/daysign.py`  
 2. 由于py文件读取不到青龙环境变量,我是直接在curls里面拷贝复制进去的 
 3. 拉取后定时任务就可以执行了  
+4. ![image](https://user-images.githubusercontent.com/48628500/147813299-20c6f1b1-9478-4260-aefe-ec2cd25a4048.png)
 
-## 
-![image](https://user-images.githubusercontent.com/48628500/147813299-20c6f1b1-9478-4260-aefe-ec2cd25a4048.png)
+##
+
+感谢大佬@xjasonlyu(https://github.com/xjasonlyu/98tang_daysign)
