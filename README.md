@@ -1,18 +1,42 @@
-# 青龙面板98堂签到
+# 98tang Daysign Script
 
-## How to use
-第一步Go to [`https://www.sehuatang.net/plugin.php?id=dd_sign&view=daysign`](https://www.sehuatang.net/plugin.php?id=dd_sign&view=daysign)
-1. 在登录账号里面F12 
-2. 找到 `Network` 选项卡
-3. 然后右键 选择 `Copy as cURL`
-4. 拷贝`Copy as cURL(bash)`
+Notice: Actions is unable to sign 98tang since its IP was filtered by Cloudflare. Try to run locally.
+## 错误问题
+1. 部署测试问题，如果使用的青龙版本为2.10.2,会出现对象值为空情况，推荐使用最新版本，预计是python环境问题
+2. 建议格式为`fetch("https://sehuatang.net/plugin.php?id=dd_sign", {"headers": { "cookie": "xxxxx..."},})`其他可以删除
+3. 新增多账号签到
 
-## How to retrieve cURL command
-1. 拉取脚本命令 `ql raw https://raw.githubusercontent.com/yelc66/98tang_daysign/main/daysign.py`  
-2. 由于py文件读取不到青龙环境变量,我是直接在curls里面拷贝复制进去的 
-3. 拉取后定时任务就可以执行了  
- ![image](https://user-images.githubusercontent.com/48628500/147813299-20c6f1b1-9478-4260-aefe-ec2cd25a4048.png)
+## How to use in [Qinglong](https://github.com/whyour/qinglong) (Recommended)
 
-##
+1. Export cookies from Browser (`Copy as Node.js fetch`)
+2. Add `FETCH_98TANG` env variable in Qinglong
+3. Add `ql repo https://github.com/xjasonlyu/98tang_daysign` as scheduled task and run it manually
+4. The daysign task would be added automatically
 
-感谢大佬@xjasonlyu(https://github.com/xjasonlyu/98tang_daysign)
+## How to use in Actions
+
+1. Export cookies from Browser
+2. Clone this repository
+3. Add secrets in repo settings
+
+## How to retrieve cURL/fetch command
+
+1. Go to [`https://www.sehuatang.net/plugin.php?id=dd_sign&view=daysign`](https://www.sehuatang.net/plugin.php?id=dd_sign&view=daysign)
+2. Press `F12` to open the developer console
+3. Locate the `Network` tab
+4. Right click the relevant request, and select `Copy as cURL` or `Copy as Node.js fetch`
+
+## Environment variables
+
+<!-- 1. `CURL_98TANG`: cURL command string (e.g. `curl -H 'xxx:xxx'`) -->
+2. `FETCH_98TANG`: Node.js fetch string (e.g. `fetch("xxx", ...)`)
+3. `TG_USER_ID`(optional): @BotFather bot chat ID
+4. `TG_BOT_TOKEN`(optional): @BotFather bot token
+
+## Telegram notification
+
+[create a telegram bot](https://medium.com/@ManHay_Hong/how-to-create-a-telegram-bot-and-send-messages-with-python-4cf314d9fa3e)
+
+## 特别感谢大佬分享
+
+@xjasonlyu(https://github.com/xjasonlyu/98tang_daysign)

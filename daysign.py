@@ -1,15 +1,13 @@
 import os
 import re
-import json
 import random
 import uncurl
 import requests
 from bs4 import BeautifulSoup
 
-SEHUATANG_HOST = 'www.sdgtretgf.online'
-DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36'
-# 三个引号里面粘贴复制的curl
-curls = """"""
+SEHUATANG_HOST = 'www.sehuatang.net'
+DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.36'
+
 
 def daysign(cookies: dict) -> bool:
 
@@ -20,6 +18,7 @@ def daysign(cookies: dict) -> bool:
                                  headers={
                                      'user-agent': DEFAULT_USER_AGENT,
                                      'x-requested-with': 'XMLHttpRequest',
+                                     'dnt': '1',
                                      'accept': '*/*',
                                      'sec-ch-ua-mobile': '?0',
                                      'sec-ch-ua-platform': 'macOS',
@@ -63,52 +62,78 @@ def daysign(cookies: dict) -> bool:
 
 
 def retrieve_cookies_from_curl(env: str) -> dict:
-    cURL = curls.replace('\\', '')
+    cURL = os.getenv(env, '').replace('\\', ' ')
     return uncurl.parse_context(curl_command=cURL).cookies
 
 
-def telegram_send_message(text: str, chat_id: str, token: str, silent: bool = False):
-    with requests.post(url=f'https://api.telegram.org/bot{token}/sendMessage',
-                       headers={'Content-Type': 'application/json'},
-                       data=json.dumps({
-                           'chat_id': chat_id,
-                           'text': text,
-                           'parse_mode': 'HTML',
-                           'disable_notification': silent,
-                       })) as r:
-        r.raise_for_status()
-        return r.json()
+def retrieve_cookies_from_fetch(env: str) -> dict:
+    def parse_fetch(s: str) -> dict:
+        ans = {}
+        exec(s, {
+            'fetch': lambda _, o: ans.update(o),
+            'null': None
+        })
+        return ans
+    cookie_str = parse_fetch(env)['headers']['cookie']
+    return dict(s.strip().split('=', maxsplit=1) for s in cookie_str.split(';'))
+
+
+def push_notification(title: str, content: str) -> None:
+
+    def telegram_send_message(text: str, chat_id: str, token: str, silent: bool = False) -> None:
+        with requests.post(url=f'https://api.telegram.org/bot{token}/sendMessage',
+                           json={
+                               'chat_id': chat_id,
+                               'text': text,
+                               'disable_notification': silent,
+                               'disable_web_page_preview': True,
+                           }) as r:
+            r.raise_for_status()
+
+    try:
+        from notify import telegram_bot
+        telegram_bot(title, content)
+    except ImportError:
+        chat_id = os.getenv('TG_USER_ID')
+        bot_token = os.getenv('TG_BOT_TOKEN')
+        if chat_id and bot_token:
+            telegram_send_message(f'{title}\n\n{content}', chat_id, bot_token)
 
 
 def main():
-    cookies = retrieve_cookies_from_curl('CURL')
-    raw_html = daysign(cookies=cookies)
+    envList = os.getenv('FETCH_98TANG').split('&')
+    for fetchItem in envList:
+        raw_html = None
+        cookies = {}
 
-    try:
-        if '签到成功' in raw_html:
-            message_text = re.findall(
-                r"'(签到成功.+?)'", raw_html, re.MULTILINE)[0]
-        elif '已经签到' in raw_html:
-            message_text = re.findall(
-                r"'(已经签到.+?)'", raw_html, re.MULTILINE)[0]
-        elif '需要先登录' in raw_html:
-            message_text = f'<b>98堂 签到异常</b>\n\nCookie无效或已过期，请重新获取。'
-        else:
-            message_text = raw_html
-    except IndexError:
-        message_text = f'<b>98堂 签到异常</b>\n\n正则匹配错误\n--------------------\n{raw_html}'
-    except Exception as e:
-        message_text = f'<b>98堂 签到异常</b>\n\n错误原因：{e}\n--------------------\n{raw_html}'
+        if os.getenv('CURL_98TANG'):
+            cookies = retrieve_cookies_from_curl('CURL_98TANG')
+        elif os.getenv('FETCH_98TANG'):
+            cookies = retrieve_cookies_from_fetch(fetchItem)
 
-    # log to output
-    print(message_text)
+        try:
+            raw_html = daysign(cookies=cookies)
 
-    # telegram notify
-    chat_id = os.getenv('')
-    bot_token = os.getenv('')
-    if chat_id and bot_token:
-        telegram_send_message(message_text, chat_id, bot_token, silent=(
-            True if '签到成功' in message_text else False))
+            if '签到成功' in raw_html:
+                title, message_text = '98堂 每日签到', re.findall(
+                    r"'(签到成功.+?)'", raw_html, re.MULTILINE)[0]
+            elif '已经签到' in raw_html:
+                title, message_text = '98堂 每日签到', re.findall(
+                    r"'(已经签到.+?)'", raw_html, re.MULTILINE)[0]
+            elif '需要先登录' in raw_html:
+                title, message_text = '98堂 签到异常', f'Cookie无效或已过期，请重新获取'
+            else:
+                title, message_text = '98堂 签到异常', raw_html
+        except IndexError:
+            title, message_text = '98堂 签到异常', f'正则匹配错误'
+        except Exception as e:
+            title, message_text = '98堂 签到异常', f'错误原因：{e}'
+
+        # log to output
+        print(message_text) 
+
+        # telegram notify
+        push_notification(title, message_text)
 
 
 if __name__ == '__main__':
