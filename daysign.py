@@ -4,6 +4,9 @@ import random
 import uncurl
 import requests
 from bs4 import BeautifulSoup
+from notify import send
+
+
 
 SEHUATANG_HOST = 'www.sehuatang.net'
 DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
@@ -58,29 +61,7 @@ def retrieve_cookies_from_string(cookie_str: str) -> dict:
         name, value = cookie.strip().split('=', maxsplit=1)
         cookies[name] = value
     return cookies
-
-
-def push_notification(title: str, content: str) -> None:
-
-    def telegram_send_message(text: str, chat_id: str, token: str, silent: bool = False) -> None:
-        with requests.post(url=f'https://api.telegram.org/bot{token}/sendMessage',
-                           json={
-                               'chat_id': chat_id,
-                               'text': text,
-                               'disable_notification': silent,
-                               'disable_web_page_preview': True,
-                           }) as r:
-            r.raise_for_status()
-
-    try:
-        from notify import telegram_bot
-        telegram_bot(title, content)
-    except ImportError:
-        chat_id = os.getenv('TG_USER_ID')
-        bot_token = os.getenv('TG_BOT_TOKEN')
-        if chat_id and bot_token:
-            telegram_send_message(f'{title}\n\n{content}', chat_id, bot_token)
-
+  
 
 def main(cookie):
     cookies = retrieve_cookies_from_string(cookie)
@@ -120,4 +101,4 @@ if __name__ == '__main__':
     title = "98堂签到汇总"
     message = "\n".join([f"第 {i+1} 个账号. {title}: {message}" for i, (title, message) in enumerate(results)])
     print(message)
-    push_notification(title, message)
+    send(title, message)
