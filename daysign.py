@@ -6,13 +6,11 @@ import requests
 from bs4 import BeautifulSoup
 
 SEHUATANG_HOST = 'www.sehuatang.net'
-DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.36'
-
+DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+user_cookie = os.getenv("CK_98TANG")
 
 def daysign(cookies: dict) -> bool:
-
     with requests.Session() as session:
-
         def _request(method, url, *args, **kwargs):
             with session.request(method=method, url=url, cookies=cookies,
                                  headers={
@@ -21,7 +19,7 @@ def daysign(cookies: dict) -> bool:
                                      'dnt': '1',
                                      'accept': '*/*',
                                      'sec-ch-ua-mobile': '?0',
-                                     'sec-ch-ua-platform': 'macOS',
+                                     'sec-ch-ua-platform': 'Windows',
                                      'sec-fetch-site': 'same-origin',
                                      'sec-fetch-mode': 'cors',
                                      'sec-fetch-dest': 'empty',
@@ -30,7 +28,6 @@ def daysign(cookies: dict) -> bool:
                                  }, *args, **kwargs) as r:
                 r.raise_for_status()
                 return r
-
         with _request(method='get', url=f'https://{SEHUATANG_HOST}/plugin.php?id=dd_sign&mod=sign') as r:
             id_hash_rsl = re.findall(
                 r"updatesecqaa\('(.*?)'", r.text, re.MULTILINE | re.IGNORECASE)
@@ -40,19 +37,14 @@ def daysign(cookies: dict) -> bool:
             formhash = soup.find('input', {'name': 'formhash'})['value']
             signtoken = soup.find('input', {'name': 'signtoken'})['value']
             action = soup.find('form', {'name': 'login'})['action']
-
-        # GET: https://www.sehuatang.net/misc.php?mod=secqaa&action=update&idhash=qS0&0.2010053552105764
         with _request(method='get', url=f'https://{SEHUATANG_HOST}/misc.php?mod=secqaa&action=update&idhash={id_hash}&{round(random.random(), 16)}') as r:
             qes_rsl = re.findall(r"'(.*?) = \?'", r.text,
                                  re.MULTILINE | re.IGNORECASE)
-
             if not qes_rsl or not qes_rsl[0]:
                 raise Exception('invalid or empty question!')
             qes = qes_rsl[0]
             ans = eval(qes)
             assert type(ans) == int
-
-        # POST: https://www.sehuatang.net/plugin.php?id=dd_sign&mod=sign&signsubmit=yes&signhash=LMAB9&inajax=1
         with _request(method='post', url=f'https://{SEHUATANG_HOST}/{action.lstrip("/")}&inajax=1',
                       data={'formhash': formhash,
                             'signtoken': signtoken,
@@ -60,22 +52,12 @@ def daysign(cookies: dict) -> bool:
                             'secanswer': ans}) as r:
             return r.text
 
-
-def retrieve_cookies_from_curl(env: str) -> dict:
-    cURL = os.getenv(env, '').replace('\\', ' ')
-    return uncurl.parse_context(curl_command=cURL).cookies
-
-
-def retrieve_cookies_from_fetch(env: str) -> dict:
-    def parse_fetch(s: str) -> dict:
-        ans = {}
-        exec(s, {
-            'fetch': lambda _, o: ans.update(o),
-            'null': None
-        })
-        return ans
-    cookie_str = parse_fetch(os.getenv(env))['headers']['cookie']
-    return dict(s.strip().split('=', maxsplit=1) for s in cookie_str.split(';'))
+def retrieve_cookies_from_string(cookie_str: str) -> dict:
+    cookies = {}
+    for cookie in cookie_str.split(';'):
+        name, value = cookie.strip().split('=', maxsplit=1)
+        cookies[name] = value
+    return cookies
 
 
 def push_notification(title: str, content: str) -> None:
@@ -100,40 +82,42 @@ def push_notification(title: str, content: str) -> None:
             telegram_send_message(f'{title}\n\n{content}', chat_id, bot_token)
 
 
-def main():
-
-    raw_html = None
-    cookies = {}
-
-    if os.getenv('CURL_98TANG'):
-        cookies = retrieve_cookies_from_curl('CURL_98TANG')
-    elif os.getenv('FETCH_98TANG'):
-        cookies = retrieve_cookies_from_fetch('FETCH_98TANG')
-
+def main(cookie):
+    cookies = retrieve_cookies_from_string(cookie)
     try:
         raw_html = daysign(cookies=cookies)
-
-        if '签到成功' in raw_html:
-            title, message_text = '98堂 每日签到', re.findall(
-                r"'(签到成功.+?)'", raw_html, re.MULTILINE)[0]
-        elif '已经签到' in raw_html:
-            title, message_text = '98堂 每日签到', re.findall(
-                r"'(已经签到.+?)'", raw_html, re.MULTILINE)[0]
-        elif '需要先登录' in raw_html:
-            title, message_text = '98堂 签到异常', f'Cookie无效或已过期，请重新获取'
+        if raw_html is not None:
+            if '签到成功' in raw_html:
+                title, message_text = '98堂 每日签到', re.findall(
+                    r"'(签到成功.+?)'", raw_html, re.MULTILINE)[0]
+            elif '已经签到' in raw_html:
+                title, message_text = '98堂 每日签到', re.findall(
+                    r"'(已经签到.+?)'", raw_html, re.MULTILINE)[0]
+            else:
+                title, message_text = '98堂 签到异常', raw_html
         else:
-            title, message_text = '98堂 签到异常', raw_html
+            title, message_text = '98堂 签到异常', f'未获取到有效的 HTML 响应'
     except IndexError:
         title, message_text = '98堂 签到异常', f'正则匹配错误'
     except Exception as e:
         title, message_text = '98堂 签到异常', f'错误原因：{e}'
-
-    # log to output
-    print(message_text)
-
-    # telegram notify
-    push_notification(title, message_text)
+    
+    return title, message_text
 
 
 if __name__ == '__main__':
-    main()
+    cookies = user_cookie.split("&")
+    msg = f"98堂签到共获取到{len(cookies)}个账号"
+    print(msg)
+
+    results = []  # 存储每个账号的签到结果
+
+    for i, cookie in enumerate(cookies, start=1):
+        title, message = main(cookie)
+        results.append((title, message))
+
+    # 汇总所有账号的签到结果并推送通知
+    title = "98堂签到汇总"
+    message = "\n".join([f"第 {i+1} 个账号. {title}: {message}" for i, (title, message) in enumerate(results)])
+    print(message)
+    push_notification(title, message)
