@@ -83,19 +83,18 @@ class FlareSolverr:
         if cookies:
             payload['cookies'] = [{'name': k, 'value': v} for
                                   k, v in cookies.items()]
-        if method == 'post' and data:
+        if method.lower() == 'post' and data:
             payload['postData'] = urllib.parse.urlencode(data)
         # make POST request
         with self.http_client.stream(method='POST', url=self.url, json=payload) as r:
-            if r.read() and (data := r.json()) and (solution := data.get('solution')) is None:
-                raise FlareSolverrError(
-                    data.get('error') or data.get('message'))
+            if r.read() and (results := r.json()) and (solution := results.get('solution')) is None:
+                raise FlareSolverrError(results)
 
             # build a fake response
             resp = FlareSolverrResponse(
                 status_code=solution['status'],
                 headers=solution['headers'],
-                json=solution['response'],
+                content=solution['response'].encode(),
                 request=httpx.Request(
                     method=method.upper(),
                     url=solution['url'],
@@ -217,23 +216,8 @@ class FlareSolverrHTTPClient:
         headers: dict = {},
         **kwargs,
     ) -> FlareSolverrResponse:
-
-        retries = 3
-        while retries > 0:
-
-            r = self.http_client.request(
-                method=method,
-                url=url,
-                headers=self.preprocess_headers(headers=headers),
-                **kwargs)
-
-            if not self.require_challenge(r):
-                return FlareSolverrResponse.from_httpx_resp(r)
-
-            logging.info(f'Challenge detected with URL: {url}')
-            self.update_cf_token(url=url)
-
-            retries -= 1
-
-        raise FlareSolverrError(
-            f'CF challenge bypass error with URL: {url}')
+        return self.fs.request(
+            method=method,
+            url=url,
+            cookies=self.http_client.cookies,
+            **kwargs)

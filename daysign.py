@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import uuid
 import httpx
 import traceback
 import random
@@ -10,7 +11,7 @@ from xml.etree import ElementTree as ET
 from flaresolverr import FlareSolverrHTTPClient
 
 SEHUATANG_HOST = 'www.sehuatang.net'
-DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36'
 
 FID = 103  # 高清中文字幕
 
@@ -68,6 +69,7 @@ def daysign(
 ) -> bool:
 
     with (FlareSolverrHTTPClient(url=flaresolverr_url,
+                                 session_id=uuid.uuid4().hex,
                                  proxy=flaresolverr_proxy,
                                  cookies=cookies,
                                  http2=True)
@@ -95,6 +97,7 @@ def daysign(
             finally:
                 r.close()
 
+        # age verification
         age_confirmed = False
         age_retry_cnt = 3
         while not age_confirmed and age_retry_cnt > 0:
@@ -110,9 +113,11 @@ def daysign(
         if not age_confirmed:
             raise Exception('failed to pass age confirmation')
 
+        # find TIDs from the given FID
         with _request(method='get', url=f'https://{SEHUATANG_HOST}/forum.php?mod=forumdisplay&fid={FID}') as r:
             tids = re.findall(r"normalthread_(\d+)", r.text,
                               re.MULTILINE | re.IGNORECASE)
+            print(f'all tids found: {tids}')
 
         # Post comments to forums
         for _ in range(int(REPLY_TIMES)):
@@ -123,6 +128,7 @@ def daysign(
             with _request(method='get', url=f'https://{SEHUATANG_HOST}/forum.php?mod=viewthread&tid={tid}&extra=page%3D1') as r:
                 soup = BeautifulSoup(r.text, 'html.parser')
                 formhash = soup.find('input', {'name': 'formhash'})['value']
+                print(f'formhash found for tid={tid}: {formhash}')
 
             message = random.choice(AUTO_REPLIES)
 
@@ -134,9 +140,9 @@ def daysign(
                               'formhash': formhash,
                               'usesig': '',
                               'subject': '',
-                          }) as r:
+            }) as r:
                 print(f'comment to: tid = {tid}, message = {message}')
-                print(r.text)
+                # print(r.text)
 
             time.sleep(random.randint(16, 20))
 
@@ -231,7 +237,7 @@ def push_notification(title: str, content: str) -> None:
                            'text': text,
                            'disable_notification': silent,
                            'disable_web_page_preview': True,
-                       })
+        })
         r.raise_for_status()
 
     try:
