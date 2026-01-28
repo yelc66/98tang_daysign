@@ -1,3 +1,4 @@
+import base64
 import http
 import httpx
 import logging
@@ -31,21 +32,32 @@ class FlareSolverr:
         self,
         url: str,
         session_id: str = None,
+        proxy_url: str = None,
         http_client: httpx.Client = None,
         timeout: int = None,
     ) -> None:
         self.url: str = url
         self.timeout: int = timeout
-        self.update_session_id(session_id=session_id)
+        self.proxy_url = proxy_url
         self.http_client: httpx.Client = http_client or httpx.Client()
         self.http_client.timeout = timeout
+        self.update_session(session_id=session_id)
 
     @staticmethod
     def random_session_id() -> str:
         return str(uuid.uuid4())
 
-    def update_session_id(self, session_id=None) -> None:
+    def update_session(self, session_id=None) -> None:
         self.session_id: str = session_id or self.random_session_id()
+        payload = {
+            'cmd': 'sessions.create',
+            'session': self.session_id
+        }
+        if self.proxy_url:
+            payload['proxy'] = {"url": self.proxy_url}
+        r = self.http_client.request(method='POST', url=self.url, json=payload)
+        r.raise_for_status()
+        print(f'session created: {r.json()}')
 
     def get(
         self,
@@ -70,7 +82,7 @@ class FlareSolverr:
         url: str,
         *,
         cookies: dict = {},
-        data: dict = {},
+        data=None,
         **kwargs,
     ) -> FlareSolverrResponse:
         payload = {
@@ -84,7 +96,8 @@ class FlareSolverr:
             payload['cookies'] = [{'name': k, 'value': v} for
                                   k, v in cookies.items()]
         if method.lower() == 'post' and data:
-            payload['postData'] = urllib.parse.urlencode(data)
+            payload['postData'] = f'$$post={base64.b64encode(data.encode()).decode()}' \
+                if isinstance(data, str) else urllib.parse.urlencode(data)
         # make POST request
         with self.http_client.stream(method='POST', url=self.url, json=payload) as r:
             if r.read() and (results := r.json()) and (solution := results.get('solution')) is None:
@@ -119,6 +132,7 @@ class FlareSolverrHTTPClient:
         url: str,
         session_id=None,
         timeout: int = 120000,
+        proxy_url: str = None,
         **kwargs,
     ) -> None:
 
@@ -126,6 +140,7 @@ class FlareSolverrHTTPClient:
             url=url,
             session_id=session_id,
             timeout=timeout,
+            proxy_url=proxy_url,
         )
         self.http_client = httpx.Client(
             timeout=timeout, **kwargs,
@@ -154,6 +169,7 @@ class FlareSolverrHTTPClient:
             headers.pop('User-Agent', None)
         return headers
 
+    # deprecated
     def update_cf_token(
         self,
         url: str,
@@ -178,7 +194,7 @@ class FlareSolverrHTTPClient:
                 logging.warning(
                     f'Retry cf_clearance update after 10 seconds caused by error: {e}')
                 time.sleep(10)  # wait for 10 seconds
-                self.fs.update_session_id()  # force session id reset
+                self.fs.update_session()  # force session id reset
                 logging.info(
                     f'Reset flaresolverr session id to: {self.fs.session_id}')
             finally:
@@ -216,8 +232,11 @@ class FlareSolverrHTTPClient:
         headers: dict = {},
         **kwargs,
     ) -> FlareSolverrResponse:
-        return self.fs.request(
+        r = self.fs.request(
             method=method,
             url=url,
             cookies=self.http_client.cookies,
             **kwargs)
+        # clear cookies after passing to flaresolverr.
+        self.http_client.cookies.clear()
+        return r
