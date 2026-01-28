@@ -17,7 +17,7 @@ Notice: Actions is unable to sign 98tang since its IP was filtered by Cloudflare
 
 ## How to retrieve cURL/fetch command
 
-1. Go to [`https://www.sehuatang.net/plugin.php?id=dd_sign&view=daysign`](https://www.sehuatang.net/plugin.php?id=dd_sign&view=daysign)
+1. Go to 98tang website homepage
 2. Press `F12` to open the developer console
 3. Locate the `Network` tab
 4. Right click the relevant request, and select `Copy as cURL` or `Copy as Node.js fetch`
